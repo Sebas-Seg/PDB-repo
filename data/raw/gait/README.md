@@ -4,11 +4,11 @@ This folder contains walking recordings acquired using the 10 Meter Walking Test
 
 ## Task
 
-* Walking at self-selected speed over a 10-meter distance
+- Walking at self-selected speed over a 10-meter distance
 
 ## Protocol
 
-* 10MWT (10 Meter Walking Test)
+- 10MWT (10 Meter Walking Test)
 
 ## Data
 
@@ -20,5 +20,7 @@ SXX_gait_10MWT_YY.csv
 
 ## Notes
 
-* Data are raw and unprocessed
-* Metadata and signals are stored within each CSV file
+- Data are raw and unprocessed
+- Metadata and signals are stored within each CSV file
+
+# Test Fabian
