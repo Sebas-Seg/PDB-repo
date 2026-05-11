@@ -14,7 +14,9 @@
 
 from __future__ import annotations
 
+import csv
 import os
+import re
 from dataclasses import dataclass, field
 
 import matplotlib.pyplot as plt
@@ -53,6 +55,40 @@ class RegistroCSV:
     def total_metadatos(self) -> int:
         # Cantidad de filas cargadas en la tabla de metadatos.
         return len(self.metadatos)
+
+
+# ---------------------------------------------------------------------------
+def _encontrar_skiprows_tabla_numerica(path_csv: str) -> int:
+    # Devuelve la cantidad de lineas a saltar para que pandas lea la cabecera
+    # de la tabla numerica (despues del bloque de metadatos y lineas vacias).
+    with open(path_csv, "r", newline="", encoding="utf-8") as archivo:
+        lineas = archivo.readlines()
+
+    indice = 0
+    while indice < len(lineas) and lineas[indice].strip() != "":
+        indice += 1
+
+    # Saltamos la primera linea vacia y cualquier linea vacia adicional.
+    while indice < len(lineas) and lineas[indice].strip() == "":
+        indice += 1
+
+    return indice
+
+
+# ---------------------------------------------------------------------------
+def _parsear_float_desde_texto(texto: str) -> float | None:
+    # Extrae el primer numero (int o float) de un texto.
+    if texto is None:
+        return None
+
+    coincidencia = re.search(r"[-+]?\d+(?:\.\d+)?", str(texto))
+    if not coincidencia:
+        return None
+
+    try:
+        return float(coincidencia.group(0))
+    except ValueError:
+        return None
 # ---------------------------------------------------------------------------
 def listar_archivos_csv(ruta_carpeta: str) -> list[str]:
     # Recorre una carpeta y devuelve solo los nombres de archivos .csv.
@@ -110,9 +146,27 @@ def cargar_metadatos(ruta_carpeta: str, data_base: list[RegistroCSV]) -> None:
     # 5. separar cada linea en campo y valor,
     # 6. guardar el resultado en registro.metadatos.
     #
-    # Esta version deja una tabla vacia para que el script siga funcionando.
     for registro in data_base:
-        registro.metadatos = pd.DataFrame(columns=["campo", "valor"])
+        archivo_csv = os.path.join(ruta_carpeta, registro.nombre_fichero)
+        filas_metadatos: list[dict[str, str]] = []
+
+        with open(archivo_csv, "r", newline="", encoding="utf-8") as archivo:
+            lector = csv.reader(archivo)
+            for fila in lector:
+                # La linea vacia separa metadatos del bloque numerico.
+                if not fila:
+                    break
+
+                campo = (fila[0] or "").strip()
+                # Algunos valores contienen comas: los reconstruimos.
+                valor = ",".join(fila[1:]).strip() if len(fila) > 1 else ""
+
+                if campo == "":
+                    continue
+
+                filas_metadatos.append({"campo": campo, "valor": valor})
+
+        registro.metadatos = pd.DataFrame(filas_metadatos, columns=["campo", "valor"])
 
 
 # ---------------------------------------------------------------------------
@@ -129,10 +183,24 @@ def cargar_senales(ruta_carpeta: str, data_base: list[RegistroCSV]) -> None:
     # 6. convertir las columnas a numericas,
     # 7. guardar el resultado en registro.datos.
     #
-    # Esta version deja una tabla vacia con las columnas esperadas para que
-    # el script siga funcionando.
     for registro in data_base:
-        registro.datos = pd.DataFrame(columns=COLUMNAS_INTERES)
+        archivo_csv = os.path.join(ruta_carpeta, registro.nombre_fichero)
+        skiprows = _encontrar_skiprows_tabla_numerica(archivo_csv)
+
+        tabla = pd.read_csv(archivo_csv, skiprows=skiprows)
+        tabla.columns = [str(c).strip() for c in tabla.columns]
+
+        faltantes = [c for c in COLUMNAS_INTERES if c not in tabla.columns]
+        if faltantes:
+            raise KeyError(
+                f"Faltan columnas requeridas en {registro.nombre_fichero}: {faltantes}"
+            )
+
+        tabla_interes = tabla[COLUMNAS_INTERES].copy()
+        for col in COLUMNAS_INTERES:
+            tabla_interes[col] = pd.to_numeric(tabla_interes[col], errors="coerce")
+
+        registro.datos = tabla_interes
 
 
 # ---------------------------------------------------------------------------
@@ -146,9 +214,35 @@ def sombrear_intervalos_sync(ax, tiempo, sync) -> None:
     # 1. recorrer la senal sync,
     # 2. detectar los cambios de 0 a 1 y de 1 a 0,
     # 3. usar ax.axvspan(inicio, fin, ...) para sombrear.
-    #
-    # Esta version no hace nada para no interrumpir la ejecucion.
-    return
+    tiempo = np.asarray(tiempo, dtype=float)
+    sync_arr = np.asarray(sync, dtype=float)
+    sync_arr = np.nan_to_num(sync_arr, nan=0.0)
+    sync_on = sync_arr >= 0.5
+
+    if len(tiempo) == 0 or len(sync_on) == 0:
+        return
+
+    n = min(len(tiempo), len(sync_on))
+    tiempo = tiempo[:n]
+    sync_on = sync_on[:n]
+
+    # Detectamos flancos usando padding en ambos extremos.
+    cambios = np.diff(sync_on.astype(int), prepend=0, append=0)
+    inicios = np.where(cambios == 1)[0]
+    finales = np.where(cambios == -1)[0]
+
+    for inicio_idx, fin_idx in zip(inicios, finales, strict=False):
+        if inicio_idx >= len(tiempo):
+            continue
+        if fin_idx <= 0:
+            continue
+
+        inicio_t = float(tiempo[inicio_idx])
+        fin_t = float(tiempo[min(fin_idx - 1, len(tiempo) - 1)])
+        if fin_t <= inicio_t:
+            continue
+
+        ax.axvspan(inicio_t, fin_t, color="0.9", zorder=0)
 
 
 # ---------------------------------------------------------------------------
@@ -174,10 +268,28 @@ def graficar_registro(
     # 4. llamar a sombrear_intervalos_sync en ambos ejes,
     # 5. graficar Angle_X y Linear_Acceleration_Z,
     # 6. poner como titulo general el nombre del fichero.
-    #
-    # Esta version solo genera una figura vacia muy simple para que se vea
-    # la estructura del resultado sin exigir la implementacion completa.
+    if frecuencia_muestreo is None or float(frecuencia_muestreo) <= 0:
+        raise ValueError("frecuencia_muestreo debe ser un numero positivo (Hz)")
+
+    angle_x = pd.to_numeric(pd.Series(angle_x), errors="coerce").to_numpy(dtype=float)
+    acc_z = pd.to_numeric(pd.Series(acc_z), errors="coerce").to_numpy(dtype=float)
+    sync = pd.to_numeric(pd.Series(sync), errors="coerce").to_numpy(dtype=float)
+
+    n = min(len(angle_x), len(acc_z), len(sync))
+    angle_x = angle_x[:n]
+    acc_z = acc_z[:n]
+    sync = sync[:n]
+
+    tiempo = np.arange(n, dtype=float) / float(frecuencia_muestreo)
+
     figura, ejes = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+
+    sombrear_intervalos_sync(ejes[0], tiempo, sync)
+    sombrear_intervalos_sync(ejes[1], tiempo, sync)
+
+    ejes[0].plot(tiempo, angle_x, linewidth=1)
+    ejes[1].plot(tiempo, acc_z, linewidth=1)
+
     ejes[0].set_title("Angle X")
     ejes[0].set_ylabel("Angulo [deg]")
     ejes[1].set_title("Acceleration Z")
@@ -199,8 +311,18 @@ def obtener_frecuencia_muestreo(registro: RegistroCSV) -> float | None:
     # 3. convertirlo a float,
     # 4. devolver ese numero.
     #
-    # Mientras no este implementada, devuelve None.
-    return None
+    if registro.metadatos is None or registro.metadatos.empty:
+        return None
+
+    tabla = registro.metadatos.copy()
+    tabla["campo"] = tabla["campo"].astype(str)
+
+    mascara = tabla["campo"].str.strip().str.casefold() == "sampling frequency".casefold()
+    if not mascara.any():
+        return None
+
+    valor = tabla.loc[mascara, "valor"].iloc[0]
+    return _parsear_float_desde_texto(str(valor))
 
 
 # ---------------------------------------------------------------------------
