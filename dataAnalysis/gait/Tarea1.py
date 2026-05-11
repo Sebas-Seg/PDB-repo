@@ -113,7 +113,28 @@ def cargar_metadatos(ruta_carpeta: str, data_base: list[RegistroCSV]) -> None:
     #
     # Esta version deja una tabla vacia para que el script siga funcionando.
     for registro in data_base:
-        registro.metadatos = pd.DataFrame(columns=["campo", "valor"])
+        #Ruta del archivo CSV
+        archivo_csv = os.path.join(ruta_carpeta, registro.nombre_fichero)
+        #Guardamos valores
+        metadatos = []
+        #Abrimos el archivo
+        with open(archivo_csv, "r", encoding="utf-8") as f:
+            #Leemos linea por linea
+            for linea in f:
+                linea = linea.strip()
+                #Si hay un salto de linea (linea vacia) termino el metadata
+                if linea == "":
+                    break
+                #separar en 2 partes 
+                partes = linea.split(",",1)
+
+                #Validamos que solo haya campo y valor
+                if len(partes) == 2:
+                    campo = partes[0].strip()
+                    valor = partes[1].strip()
+                    
+                    metadatos.append({"campo":campo, "valor":valor})
+        registro.metadatos = pd.DataFrame(metadatos, columns=["campo", "valor"])
 
 
 # ---------------------------------------------------------------------------
