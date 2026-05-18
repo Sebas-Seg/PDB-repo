@@ -214,7 +214,7 @@ def corregir_aceleracion(registro: RegistroCSV) -> None:
     # 2. multiplicarla por -1,
     # 3. guardar el resultado en la misma tabla.
     #
-    return
+    registro.datos["Linear_Acceleration_Z"] = (registro.datos["Linear_Acceleration_Z"] * -1)
 
 
 # ---------------------------------------------------------------------------
@@ -236,6 +236,11 @@ def buscar_indice_primera_sync(sync) -> int:
     # 3. devolver ese indice.
     #
     # Mientras no se implemente, devuelve -1.
+    for indice, valor in enumerate(sync):
+
+        if valor != 0:
+            return indice
+
     return -1
 
 
@@ -412,7 +417,6 @@ def main() -> None:
     # Paso 3: cargamos el archivo seleccionado en un registro.
     registro = construir_registro_desde_csv(ruta_csv)
     frecuencia_muestreo = obtener_frecuencia_muestreo(registro)
-    print(frecuencia_muestreo)
 
     # Cuando las funciones principales esten completas, este flujo deberia
     # producir resultados reales a partir del CSV.
