@@ -299,8 +299,9 @@ def calcular_velocidad_marcha(
     # 3. devolver distancia / tiempo.
     #
     # Mientras no se implemente, devuelve 0.0.
-    return 0.0
+    tiempo = muestras_sync / frecuencia_muestreo
 
+    return distancia_m / tiempo
 
 # ---------------------------------------------------------------------------
 def calcular_velocidad_pasos(
