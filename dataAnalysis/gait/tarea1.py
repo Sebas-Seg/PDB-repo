@@ -113,7 +113,29 @@ def cargar_metadatos(ruta_carpeta: str, data_base: list[RegistroCSV]) -> None:
     #
     # Esta version deja una tabla vacia para que el script siga funcionando.
     for registro in data_base:
-        registro.metadatos = pd.DataFrame(columns=["campo", "valor"])
+
+        archivo_csv = os.path.join(
+            ruta_carpeta,
+            registro.nombre_fichero
+        )
+
+        filas = []
+
+        with open(archivo_csv, "r", encoding="utf-8-sig") as archivo:
+
+            for linea in archivo:
+
+                if linea.strip() == "":
+                    break
+
+                campo, valor = linea.split(",", 1)
+
+                filas.append({
+                    "campo": campo,
+                    "valor": valor.strip()
+                })
+
+        registro.metadatos = pd.DataFrame(filas)
 
 
 # ---------------------------------------------------------------------------
