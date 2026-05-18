@@ -113,28 +113,20 @@ def cargar_metadatos(ruta_carpeta: str, data_base: list[RegistroCSV]) -> None:
     #
     # Esta version deja una tabla vacia para que el script siga funcionando.
     for registro in data_base:
-
         archivo_csv = os.path.join(
             ruta_carpeta,
             registro.nombre_fichero
         )
-
         filas = []
-
         with open(archivo_csv, "r", encoding="utf-8-sig") as archivo:
-
             for linea in archivo:
-
                 if linea.strip() == "":
                     break
-
                 campo, valor = linea.split(",", 1)
-
                 filas.append({
                     "campo": campo,
                     "valor": valor.strip()
                 })
-
         registro.metadatos = pd.DataFrame(filas)
 
 
@@ -155,7 +147,22 @@ def cargar_senales(ruta_carpeta: str, data_base: list[RegistroCSV]) -> None:
     # Esta version deja una tabla vacia con las columnas esperadas para que
     # el script siga funcionando.
     for registro in data_base:
-        registro.datos = pd.DataFrame(columns=COLUMNAS_INTERES)
+        archivo_csv = os.path.join(
+            ruta_carpeta,
+            registro.nombre_fichero
+        )
+        lineas = 0
+        with open(archivo_csv, "r", encoding="utf-8-sig") as archivo:
+            for linea in archivo:
+                lineas += 1
+                if linea.strip() == "":
+                    break
+        datos = pd.read_csv(
+            archivo_csv,
+            skiprows=lineas
+        )
+        datos = datos[COLUMNAS_INTERES]
+        registro.datos = datos
 
 
 # ---------------------------------------------------------------------------
