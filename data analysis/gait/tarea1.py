@@ -335,7 +335,7 @@ def calcular_longitud_zancada(
     # 3. devolver el resultado en metros por paso.
     #
     # Mientras no se implemente, devuelve 0.0.
-    return 0.0
+    return velocidad_marcha / velocidad_pasos
 
 
 # ---------------------------------------------------------------------------
