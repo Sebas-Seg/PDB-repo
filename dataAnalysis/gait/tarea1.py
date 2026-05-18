@@ -1,5 +1,6 @@
 """
-    PRUEBA del branch
+    Alumno: Fabian Cardozo
+    
     tarea1_template.py
 
     Plantilla base para la tarea de analisis de archivos CSV de gait.
@@ -104,16 +105,30 @@ def cargar_metadatos(ruta_carpeta: str, data_base: list[RegistroCSV]) -> None:
     # - valor
     #
     # Tarea del estudiante:
-    # 1. recorrer data_base,
-    # 2. armar archivo_csv con os.path.join,
-    # 3. abrir cada fichero,
-    # 4. detenerse en la primera linea vacia,
-    # 5. separar cada linea en campo y valor,
-    # 6. guardar el resultado en registro.metadatos.
     #
+
     # Esta version deja una tabla vacia para que el script siga funcionando.
+    # 1. recorrer data_base,
     for registro in data_base:
-        registro.metadatos = pd.DataFrame(columns=["campo", "valor"])
+    # 2. armar archivo_csv con os.path.join,
+        archivo_csv: str = os.path.join(ruta_carpeta, registro.nombre_fichero)
+        
+    # 3. abrir cada fichero,
+        with open(archivo_csv, "r") as file:
+            filas = []
+            for linea in file:
+    # 4. detenerse en la primera linea vacia,
+                if linea.strip() == "":
+                    break
+            
+    # 5. separar cada linea en campo y valor,
+                columnas = linea.strip().split(",", 1)
+                campo = columnas[0].strip()
+                valor = columnas[1].strip()
+                filas.append([campo, valor])
+                
+    # 6. guardar el resultado en registro.metadatos.
+            registro.metadatos = pd.DataFrame(filas, columns=["campo", "valor"])
 
 
 # ---------------------------------------------------------------------------
@@ -133,7 +148,24 @@ def cargar_senales(ruta_carpeta: str, data_base: list[RegistroCSV]) -> None:
     # Esta version deja una tabla vacia con las columnas esperadas para que
     # el script siga funcionando.
     for registro in data_base:
-        registro.datos = pd.DataFrame(columns=COLUMNAS_INTERES)
+        archivo_csv: str = os.path.join(ruta_carpeta, registro.nombre_fichero)
+
+        lineas_a_saltar = 0
+        with open(archivo_csv, "r") as file:
+            for linea in file:
+                lineas_a_saltar += 1
+                if linea.strip() == "":
+                    break
+
+        datos = pd.read_csv(archivo_csv, skiprows=lineas_a_saltar)
+        datos.columns = datos.columns.str.strip()
+
+        datos = datos[COLUMNAS_INTERES].copy()
+
+        for columna in COLUMNAS_INTERES:
+            datos[columna] = pd.to_numeric(datos[columna], errors="coerce")
+
+        registro.datos = datos
 
 
 # ---------------------------------------------------------------------------
@@ -149,13 +181,29 @@ def sombrear_intervalos_sync(ax, tiempo, sync) -> None:
     # 3. usar ax.axvspan(inicio, fin, ...) para sombrear.
     #
     # Esta version no hace nada para no interrumpir la ejecucion.
-    return
+    tiempo = np.asarray(tiempo, dtype=float)
+    sync = pd.to_numeric(pd.Series(sync), errors="coerce").fillna(0).to_numpy()
+    sync_activo = sync == 1
+
+    inicio_intervalo = None
+
+    for indice, valor_activo in enumerate(sync_activo):
+        if valor_activo and inicio_intervalo is None:
+            inicio_intervalo = tiempo[indice]
+
+        if not valor_activo and inicio_intervalo is not None:
+            fin_intervalo = tiempo[indice]
+            ax.axvspan(inicio_intervalo, fin_intervalo, color="0.9", alpha=0.5)
+            inicio_intervalo = None
+
+    if inicio_intervalo is not None:
+        ax.axvspan(inicio_intervalo, tiempo[-1], color="0.9", alpha=0.5)
 
 
 # ---------------------------------------------------------------------------
 def graficar_registro(
     nombre_fichero: str,
-    frecuencia_muestreo: float,
+    frecuencia_muestreo: float | None,
     angle_x,
     acc_z,
     sync,
@@ -178,15 +226,50 @@ def graficar_registro(
     #
     # Esta version solo genera una figura vacia muy simple para que se vea
     # la estructura del resultado sin exigir la implementacion completa.
+    if frecuencia_muestreo is None or frecuencia_muestreo <= 0:
+        raise ValueError("La frecuencia de muestreo debe ser un numero positivo.")
+
+    angle_x = pd.to_numeric(pd.Series(angle_x), errors="coerce").to_numpy()
+    acc_z = pd.to_numeric(pd.Series(acc_z), errors="coerce").to_numpy()
+    sync = pd.to_numeric(pd.Series(sync), errors="coerce").fillna(0).to_numpy()
+
+    cantidad_muestras = min(len(angle_x), len(acc_z), len(sync))
+
+    if cantidad_muestras == 0:
+        raise ValueError("No hay muestras para graficar.")
+
+    angle_x = angle_x[:cantidad_muestras]
+    acc_z = acc_z[:cantidad_muestras]
+    sync = sync[:cantidad_muestras]
+
+    tiempo = np.arange(cantidad_muestras) / frecuencia_muestreo
+
     figura, ejes = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+
+    sombrear_intervalos_sync(ejes[0], tiempo, sync)
+    sombrear_intervalos_sync(ejes[1], tiempo, sync)
+
+    ejes[0].plot(tiempo, angle_x)
     ejes[0].set_title("Angle X")
     ejes[0].set_ylabel("Angulo [deg]")
+
+    ejes[1].plot(tiempo, acc_z)
     ejes[1].set_title("Acceleration Z")
     ejes[1].set_ylabel("Aceleracion [m/s2]")
     ejes[1].set_xlabel("Tiempo [s]")
+
     figura.suptitle(nombre_fichero)
     figura.tight_layout(rect=(0, 0, 1, 0.97))
-    plt.show()
+    
+    directorio_script = os.path.dirname(os.path.abspath(__file__))
+    carpeta_resultados = os.path.join(directorio_script, "resultados")
+    os.makedirs(carpeta_resultados, exist_ok=True)
+
+    nombre_imagen = nombre_fichero.replace(".csv", ".png")
+    ruta_imagen = os.path.join(carpeta_resultados, nombre_imagen)
+
+    plt.savefig(ruta_imagen)
+    plt.close(figura)
 
 
 # ---------------------------------------------------------------------------
@@ -201,7 +284,21 @@ def obtener_frecuencia_muestreo(registro: RegistroCSV) -> float | None:
     # 4. devolver ese numero.
     #
     # Mientras no este implementada, devuelve None.
-    return None
+    if registro.metadatos.empty:
+        return None
+
+    campos = registro.metadatos["campo"].astype(str).str.strip()
+    filtro = campos == "Sampling Frequency"
+
+    if not filtro.any():
+        return None
+
+    valor = registro.metadatos.loc[filtro, "valor"].iloc[0]
+
+    try:
+        return float(valor)
+    except ValueError:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -239,16 +336,16 @@ def main() -> None:
     # Una vez implementadas las funciones anteriores, descomentar lo
     # siguiente para generar las curvas de un registro:
     #
-    # indice = 5
-    # registro = data_base[indice]
-    # frecuencia_muestreo = obtener_frecuencia_muestreo(registro)
-    # graficar_registro(
-    #     registro.nombre_fichero,
-    #     frecuencia_muestreo,
-    #     registro.datos["Angle_X"],
-    #     registro.datos["Linear_Acceleration_Z"],
-    #     registro.datos["Sync"],
-    # )
+    indice = 0
+    registro = data_base[indice]
+    frecuencia_muestreo = obtener_frecuencia_muestreo(registro)
+    graficar_registro(
+        registro.nombre_fichero,
+        frecuencia_muestreo,
+        registro.datos["Angle_X"],
+        registro.datos["Linear_Acceleration_Z"],
+        registro.datos["Sync"],
+    )
 
 
 # ---------------------------------------------------------------------------
