@@ -299,16 +299,16 @@ def main() -> None:
     # Una vez implementadas las funciones anteriores, descomentar lo
     # siguiente para generar las curvas de un registro:
     #
-    # indice = 5
-    # registro = data_base[indice]
-    # frecuencia_muestreo = obtener_frecuencia_muestreo(registro)
-    # graficar_registro(
-    #     registro.nombre_fichero,
-    #     frecuencia_muestreo,
-    #     registro.datos["Angle_X"],
-    #     registro.datos["Linear_Acceleration_Z"],
-    #     registro.datos["Sync"],
-    # )
+    indice = 5
+    registro = data_base[indice]
+    frecuencia_muestreo = obtener_frecuencia_muestreo(registro)
+    graficar_registro(
+    registro.nombre_fichero,
+    frecuencia_muestreo,
+    registro.datos["Angle_X"],
+    registro.datos["Linear_Acceleration_Z"],
+    registro.datos["Sync"],
+    )
 
 
 # ---------------------------------------------------------------------------
