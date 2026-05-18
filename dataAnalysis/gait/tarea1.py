@@ -1,7 +1,9 @@
 """
     PRUEBA del branch
     tarea1_template.py
+
     Plantilla base para la tarea de analisis de archivos CSV de gait.
+
     La idea de esta plantilla es que el estudiante complete las funciones
     necesarias para:
     1. cargar una "base de datos" simple con los nombres de los ficheros,
@@ -10,17 +12,19 @@
     4. obtener la frecuencia de muestreo desde los metadatos,
     5. graficar Angle_X y Linear_Acceleration_Z usando un eje temporal.
 """
+
 from __future__ import annotations
+
 import os
 from dataclasses import dataclass, field
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 
 # ---------------------------------------------------------------------------
-DISTANCIA_UTIL_10MWT_M = 6.0
-CAMPO_FRECUENCIA = "Sampling Frequency"
+# Estas son las columnas de senales que nos interesa conservar del CSV.
 COLUMNAS_INTERES = [
     "Angle_X",
     "Linear_Acceleration_Z",
@@ -32,10 +36,10 @@ COLUMNAS_INTERES = [
 # ---------------------------------------------------------------------------
 @dataclass
 class RegistroCSV:
-    # Estructura principal para representar el archivo de trabajo.
-    # - nombre_fichero: nombre del CSV analizado.
+    # Estructura principal para representar un archivo CSV del dataset.
+    # - nombre_fichero: nombre del CSV.
     # - metadatos: tabla con columnas "campo" y "valor".
-    # - datos: tabla con las senales necesarias para la tarea.
+    # - datos: tabla con las senales seleccionadas.
 
     nombre_fichero: str = ""
     metadatos: pd.DataFrame = field(
@@ -45,12 +49,12 @@ class RegistroCSV:
         default_factory=lambda: pd.DataFrame(columns=COLUMNAS_INTERES)
     )
 
+    # @property para usar un metodo como atributo
     @property
-    def total_muestras(self) -> int:
-        # Cantidad de muestras validas cargadas en el bloque numerico.
-        return len(self.datos)
-
-
+    def total_metadatos(self) -> int:
+        # Cantidad de filas cargadas en la tabla de metadatos.
+        return len(self.metadatos)
+# ---------------------------------------------------------------------------
 def listar_archivos_csv(ruta_carpeta: str) -> list[str]:
     # Recorre una carpeta y devuelve solo los nombres de archivos .csv.
     # La salida queda ordenada alfabeticamente para mantener un orden estable.
@@ -92,356 +96,159 @@ def imprimir_resumen(ruta_csv: str, num_ficheros: int) -> None:
 
 
 # ---------------------------------------------------------------------------
-def seleccionar_archivo_csv(
-    ruta_carpeta: str,
-    ficheros: list[str],
-    indice: int,
-) -> str:
-    # Selecciona un solo CSV de la carpeta a partir de un indice.
-    if indice < 0 or indice >= len(ficheros):
-        raise IndexError(
-            f"Indice fuera de rango: {indice}. "
-            f"Debe estar entre 0 y {len(ficheros) - 1}."
-        )
-
-    return os.path.join(ruta_carpeta, ficheros[indice])
-
-
-# ---------------------------------------------------------------------------
-def leer_lineas_csv(ruta_csv: str) -> list[str]:
-    # Lee el archivo completo y devuelve sus lineas sin saltos finales.
-    with open(ruta_csv, "r", encoding="utf-8-sig") as archivo:
-        return archivo.read().splitlines()
-
-
-# ---------------------------------------------------------------------------
-def encontrar_linea_separadora(lineas: list[str]) -> int:
-    # Busca la primera linea vacia que separa metadatos y senales.
-    for indice, linea in enumerate(lineas):
-        if not linea.strip():
-            return indice
-
-    raise ValueError("El archivo no contiene una linea vacia de separacion.")
-
-
-# ---------------------------------------------------------------------------
-def cargar_metadatos(ruta_csv: str) -> pd.DataFrame:
-    # Carga el bloque de metadatos como una tabla de dos columnas:
+def cargar_metadatos(ruta_carpeta: str, data_base: list[RegistroCSV]) -> None:
+    # Carga el bloque inicial de metadatos en cada registro.
+    # El CSV se lee linea por linea hasta encontrar la primera linea vacia.
+    # Cada linea de metadato se separa en:
     # - campo
     # - valor
-    lineas = leer_lineas_csv(ruta_csv)
-    indice_separador = encontrar_linea_separadora(lineas)
-    filas_metadatos = []
-
-    for linea in lineas[:indice_separador]:
-        partes = linea.split(",", 1)
-
-        if len(partes) == 2:
-            campo = partes[0].strip()
-            valor = partes[1].strip()
-            filas_metadatos.append({"campo": campo, "valor": valor})
-
-    return pd.DataFrame(filas_metadatos, columns=["campo", "valor"])
-
-
-# ---------------------------------------------------------------------------
-def cargar_datos(ruta_csv: str) -> pd.DataFrame:
-    # Carga solo las senales necesarias para la tarea.
-    # Luego convierte las columnas a formato numerico y elimina filas
-    # incompletas.
-    lineas = leer_lineas_csv(ruta_csv)
-    indice_separador = encontrar_linea_separadora(lineas)
-    datos = pd.read_csv(ruta_csv, skiprows=indice_separador + 1)
-    datos.columns = [columna.strip() for columna in datos.columns]
-
-    columnas_faltantes = [
-        columna for columna in COLUMNAS_INTERES if columna not in datos.columns
-    ]
-    if columnas_faltantes:
-        raise ValueError(
-            f"Faltan columnas requeridas en el CSV: {columnas_faltantes}"
-        )
-
-    datos_filtrados = datos[COLUMNAS_INTERES].copy()
-
-    for columna in COLUMNAS_INTERES:
-        datos_filtrados[columna] = pd.to_numeric(
-            datos_filtrados[columna],
-            errors="coerce",
-        )
-
-    datos_filtrados = datos_filtrados.dropna(
-        subset=COLUMNAS_INTERES
-    ).reset_index(drop=True)
-
-    return datos_filtrados
+    #
+    # Tarea del estudiante:
+    # 1. recorrer data_base,
+    # 2. armar archivo_csv con os.path.join,
+    # 3. abrir cada fichero,
+    # 4. detenerse en la primera linea vacia,
+    # 5. separar cada linea en campo y valor,
+    # 6. guardar el resultado en registro.metadatos.
+    #
+    # Esta version deja una tabla vacia para que el script siga funcionando.
+    for registro in data_base:
+        registro.metadatos = pd.DataFrame(columns=["campo", "valor"])
 
 
 # ---------------------------------------------------------------------------
-def construir_registro_desde_csv(ruta_csv: str) -> RegistroCSV:
-    # Arma la estructura principal del ejercicio a partir de un solo archivo.
-    return RegistroCSV(
-        nombre_fichero=os.path.basename(ruta_csv),
-        metadatos=cargar_metadatos(ruta_csv),
-        datos=cargar_datos(ruta_csv),
-    )
+def cargar_senales(ruta_carpeta: str, data_base: list[RegistroCSV]) -> None:
+    # Carga solo las senales de interes del bloque numerico de cada CSV.
+    #
+    # Tarea del estudiante:
+    # 1. recorrer data_base,
+    # 2. abrir el fichero y contar cuantas lineas hay antes del bloque
+    #    numerico,
+    # 3. leer la tabla numerica con pandas.read_csv(..., skiprows=...),
+    # 4. limpiar los nombres de columnas si hace falta,
+    # 5. quedarse solo con COLUMNAS_INTERES,
+    # 6. convertir las columnas a numericas,
+    # 7. guardar el resultado en registro.datos.
+    #
+    # Esta version deja una tabla vacia con las columnas esperadas para que
+    # el script siga funcionando.
+    for registro in data_base:
+        registro.datos = pd.DataFrame(columns=COLUMNAS_INTERES)
 
 
 # ---------------------------------------------------------------------------
-def obtener_frecuencia_muestreo(registro: RegistroCSV) -> float:
+def sombrear_intervalos_sync(ax, tiempo, sync) -> None:
+    # Sombrea en gris claro los intervalos donde Sync toma valor 1.
+    # La idea es:
+    # - cuando Sync pasa de 0 a 1, se abre un intervalo sombreado;
+    # - cuando Sync vuelve a 0, se cierra ese intervalo.
+    #
+    # Tarea del estudiante:
+    # 1. recorrer la senal sync,
+    # 2. detectar los cambios de 0 a 1 y de 1 a 0,
+    # 3. usar ax.axvspan(inicio, fin, ...) para sombrear.
+    #
+    # Esta version no hace nada para no interrumpir la ejecucion.
+    return
+
+
+# ---------------------------------------------------------------------------
+def graficar_registro(
+    nombre_fichero: str,
+    frecuencia_muestreo: float,
+    angle_x,
+    acc_z,
+    sync,
+) -> None:
+    # Grafica Angle_X y Acc_Z usando tiempo en el eje X.
+    # Parametros:
+    # - nombre_fichero: se usa como titulo general de la figura.
+    # - frecuencia_muestreo: valor en Hz para construir el vector tiempo.
+    # - angle_x: senal de angulo en X.
+    # - acc_z: senal de aceleracion lineal en Z.
+    # - sync: senal binaria usada para sombrear el fondo.
+    #
+    # Tarea del estudiante:
+    # 1. convertir las entradas a arreglos o series numericas,
+    # 2. construir el vector tiempo como muestra / frecuencia,
+    # 3. crear la figura con dos subplots,
+    # 4. llamar a sombrear_intervalos_sync en ambos ejes,
+    # 5. graficar Angle_X y Linear_Acceleration_Z,
+    # 6. poner como titulo general el nombre del fichero.
+    #
+    # Esta version solo genera una figura vacia muy simple para que se vea
+    # la estructura del resultado sin exigir la implementacion completa.
+    figura, ejes = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+    ejes[0].set_title("Angle X")
+    ejes[0].set_ylabel("Angulo [deg]")
+    ejes[1].set_title("Acceleration Z")
+    ejes[1].set_ylabel("Aceleracion [m/s2]")
+    ejes[1].set_xlabel("Tiempo [s]")
+    figura.suptitle(nombre_fichero)
+    figura.tight_layout(rect=(0, 0, 1, 0.97))
+    plt.show()
+
+
+# ---------------------------------------------------------------------------
+def obtener_frecuencia_muestreo(registro: RegistroCSV) -> float | None:
     # Extrae la frecuencia de muestreo desde la tabla de metadatos.
     #
     # Tarea del estudiante:
-    # 1. buscar la fila donde campo sea "Sampling Frequency",
-    # 2. recuperar el valor asociado,
+    # 1. buscar en registro.metadatos la fila donde campo sea
+    #    "Sampling Frequency",
+    # 2. tomar el valor asociado,
     # 3. convertirlo a float,
     # 4. devolver ese numero.
     #
-    # Mientras no se implemente, devuelve 0.0.
-    for _, fila in registro.metadatos.iterrows():
-        if fila["campo"] == CAMPO_FRECUENCIA:
-            return float(fila["valor"])
-
-    return 0.0
-
-
-# ---------------------------------------------------------------------------
-def corregir_aceleracion(registro: RegistroCSV) -> None:
-    # Cambia el signo de Linear_Acceleration_Z en todas las muestras.
-    #
-    # Tarea del estudiante:
-    # 1. acceder a la columna Linear_Acceleration_Z,
-    # 2. multiplicarla por -1,
-    # 3. guardar el resultado en la misma tabla.
-    #
-    registro.datos["Linear_Acceleration_Z"] = (registro.datos["Linear_Acceleration_Z"] * -1)
-
-
-# ---------------------------------------------------------------------------
-def calcular_longitud_temporal(total_muestras: int, frecuencia_muestreo: float) -> float:
-    # Convierte cantidad de muestras en tiempo total del registro.
-    if total_muestras <= 0 or frecuencia_muestreo <= 0:
-        return 0.0
-
-    return total_muestras / frecuencia_muestreo
-
-
-# ---------------------------------------------------------------------------
-def buscar_indice_primera_sync(sync) -> int:
-    # Devuelve el indice de la primera muestra donde Sync es distinto de 0.
-    #
-    # Tarea del estudiante:
-    # 1. recorrer la senal Sync,
-    # 2. detectar la primera muestra distinta de cero,
-    # 3. devolver ese indice.
-    #
-    # Mientras no se implemente, devuelve -1.
-    for indice, valor in enumerate(sync):
-
-        if valor != 0:
-            return indice
-
-    return -1
-
-
-# ---------------------------------------------------------------------------
-def buscar_indice_ultima_sync(sync) -> int:
-    # Devuelve el indice de la ultima muestra donde Sync es distinto de 0.
-    #
-    # Tarea del estudiante:
-    # 1. recorrer la senal desde el final,
-    # 2. detectar la ultima muestra distinta de cero,
-    # 3. devolver ese indice.
-    #
-    # Mientras no se implemente, devuelve -1.
-    for indice in range(len(sync) - 1, -1, -1):
-
-        if sync[indice] != 0:
-            return indice
-
-    return -1
-
-
-# ---------------------------------------------------------------------------
-def contar_transiciones_s3_s0(segmentation_output, inicio: int, fin: int) -> int:
-    # Cuenta cuantas veces la senal pasa de 3 a 0 dentro de la ventana Sync.
-    #
-    # Tarea del estudiante:
-    # 1. recorrer Segmentation_output entre inicio y fin,
-    # 2. comparar cada muestra con la siguiente,
-    # 3. contar las transiciones donde aparece 3 seguido de 0.
-    #
-    # Mientras no se implemente, devuelve 0.
-    contador = 0
-
-    for indice in range(inicio, fin):
-
-        valor_actual = segmentation_output[indice]
-        valor_siguiente = segmentation_output[indice + 1]
-
-        if valor_actual == 3 and valor_siguiente == 0:
-            contador += 1
-
-    return contador
-
-
-# ---------------------------------------------------------------------------
-def calcular_velocidad_marcha(
-    muestras_sync: int,
-    frecuencia_muestreo: float,
-    distancia_m: float = DISTANCIA_UTIL_10MWT_M,
-) -> float:
-    # Calcula la velocidad media de marcha en la ventana util del 10MWT.
-    #
-    # Tarea del estudiante:
-    # 1. convertir la cantidad de muestras Sync en tiempo,
-    # 2. usar la distancia util de 6 metros,
-    # 3. devolver distancia / tiempo.
-    #
-    # Mientras no se implemente, devuelve 0.0.
-    tiempo = muestras_sync / frecuencia_muestreo
-
-    return distancia_m / tiempo
-
-# ---------------------------------------------------------------------------
-def calcular_velocidad_pasos(
-    pasos: int,
-    muestras_pasos: int,
-    frecuencia_muestreo: float,
-) -> float:
-    # Calcula la cantidad de pasos por segundo dentro de la ventana Sync.
-    #
-    # Tarea del estudiante:
-    # 1. convertir muestras_pasos en tiempo,
-    # 2. dividir la cantidad de pasos por ese tiempo,
-    # 3. devolver el resultado en pasos/s.
-    #
-    # Mientras no se implemente, devuelve 0.0.
-    tiempo = muestras_pasos / frecuencia_muestreo
-
-    return pasos / tiempo
-
-
-# ---------------------------------------------------------------------------
-def calcular_longitud_zancada(
-    velocidad_marcha: float,
-    velocidad_pasos: float,
-) -> float:
-    # Estima la distancia media recorrida por cada paso detectado.
-    #
-    # Tarea del estudiante:
-    # 1. tomar la velocidad de marcha en m/s,
-    # 2. dividirla por la velocidad de pasos en pasos/s,
-    # 3. devolver el resultado en metros por paso.
-    #
-    # Mientras no se implemente, devuelve 0.0.
-    return velocidad_marcha / velocidad_pasos
-
-
-# ---------------------------------------------------------------------------
-def calcular_metricas(
-    registro: RegistroCSV,
-    frecuencia_muestreo: float,
-) -> dict[str, float | int]:
-    # Reune todas las metricas pedidas en la tarea.
-    inicio_sync = buscar_indice_primera_sync(registro.datos["Sync"])
-    fin_sync = buscar_indice_ultima_sync(registro.datos["Sync"])
-    muestras_sync = 0
-
-    if inicio_sync >= 0 and fin_sync > inicio_sync:
-        muestras_sync = fin_sync - inicio_sync
-
-    pasos = contar_transiciones_s3_s0(
-        registro.datos["Segmentation_output"],
-        inicio_sync,
-        fin_sync,
-    )
-    tiempo_total = calcular_longitud_temporal(
-        registro.total_muestras,
-        frecuencia_muestreo,
-    )
-    velocidad_marcha = calcular_velocidad_marcha(
-        muestras_sync,
-        frecuencia_muestreo,
-    )
-    velocidad_pasos = calcular_velocidad_pasos(
-        pasos,
-        muestras_sync,
-        frecuencia_muestreo,
-    )
-    longitud_zancada = calcular_longitud_zancada(
-        velocidad_marcha,
-        velocidad_pasos,
-    )
-
-    return {
-        "muestras_sync": muestras_sync,
-        "pasos": pasos,
-        "tiempo_total": tiempo_total,
-        "velocidad_marcha": velocidad_marcha,
-        "velocidad_pasos": velocidad_pasos,
-        "longitud_zancada": longitud_zancada,
-    }
-
-
-# ---------------------------------------------------------------------------
-def imprimir_resultados(
-    registro: RegistroCSV,
-    frecuencia_muestreo: float,
-    metricas: dict[str, float | int],
-) -> None:
-    # Imprime en pantalla el resumen numerico del analisis.
-    print(f"Fichero analizado: {registro.nombre_fichero}")
-    print(f"Muestras leidas: {registro.total_muestras}")
-    print(f"Frecuencia de muestreo: {frecuencia_muestreo:.3f} Hz")
-    print(f"Muestras entre Sync: {metricas['muestras_sync']}")
-    print(f"Velocidad de marcha: {metricas['velocidad_marcha']:.3f} m/s")
-    print(f"Pasos detectados (S3->S0): {metricas['pasos']}")
-    print(
-        "Velocidad media de pasos: "
-        f"{metricas['velocidad_pasos']:.3f} pasos/s"
-    )
-    print(
-        "Longitud media estimada por paso: "
-        f"{metricas['longitud_zancada']:.3f} m"
-    )
-    print(
-        "Correccion aplicada: cambio de signo en "
-        "Linear_Acceleration_Z de cada muestra."
-    )
-    print(f"Tiempo total del registro: {metricas['tiempo_total']:.3f} s")
+    # Mientras no este implementada, devuelve None.
+    return None
 
 
 # ---------------------------------------------------------------------------
 def main() -> None:
     # Flujo principal del programa.
+    data_base: list[RegistroCSV] = []
+
+    # Calculamos la carpeta del dataset usando la ubicacion del script.
     directorio_script = os.path.dirname(os.path.abspath(__file__))
     db_path = os.path.abspath(
         os.path.join(directorio_script, "..", "..", "data", "raw", "gait")
     )
 
-    # Paso 1: listamos todos los archivos CSV disponibles.
+    # Paso 1: listamos archivos CSV.
     ficheros = cargar_csv(db_path)
+
+    # Paso 2: creamos un registro por cada archivo encontrado.
+    for fichero in ficheros:
+        data_base.append(RegistroCSV(nombre_fichero=fichero))
+
+    # Paso 3: completamos metadatos y senales en cada registro.
+    cargar_metadatos(db_path, data_base)
+    cargar_senales(db_path, data_base)
+
     imprimir_resumen(db_path, len(ficheros))
 
-    # Paso 2: elegimos un solo archivo para esta tarea.
+    # Mostramos un resumen corto de cada archivo cargado.
+    for registro in data_base[:5]:
+        print(registro.nombre_fichero)
+        print(registro.metadatos.head())
+        print(registro.datos.head())
+
+    # Elegimos un indice de ejemplo para graficar.
     #
-    # Tarea del estudiante:
-    # 1. decidir que indice de la lista quiere analizar,
-    # 2. usar seleccionar_archivo_csv(...) para obtener la ruta completa.
-    indice = 0
-    ruta_csv = seleccionar_archivo_csv(db_path, ficheros, indice)
-
-    # Paso 3: cargamos el archivo seleccionado en un registro.
-    registro = construir_registro_desde_csv(ruta_csv)
-    frecuencia_muestreo = obtener_frecuencia_muestreo(registro)
-
-    # Cuando las funciones principales esten completas, este flujo deberia
-    # producir resultados reales a partir del CSV.
-    corregir_aceleracion(registro)
-
-    metricas = calcular_metricas(registro, frecuencia_muestreo)
-    imprimir_resultados(registro, frecuencia_muestreo, metricas)
+    # Una vez implementadas las funciones anteriores, descomentar lo
+    # siguiente para generar las curvas de un registro:
+    #
+    # indice = 5
+    # registro = data_base[indice]
+    # frecuencia_muestreo = obtener_frecuencia_muestreo(registro)
+    # graficar_registro(
+    #     registro.nombre_fichero,
+    #     frecuencia_muestreo,
+    #     registro.datos["Angle_X"],
+    #     registro.datos["Linear_Acceleration_Z"],
+    #     registro.datos["Sync"],
+    # )
 
 
 # ---------------------------------------------------------------------------
