@@ -254,6 +254,11 @@ def buscar_indice_ultima_sync(sync) -> int:
     # 3. devolver ese indice.
     #
     # Mientras no se implemente, devuelve -1.
+    for indice in range(len(sync) - 1, -1, -1):
+
+        if sync[indice] != 0:
+            return indice
+
     return -1
 
 
