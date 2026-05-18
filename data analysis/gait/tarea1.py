@@ -16,28 +16,6 @@ from dataclasses import dataclass, field
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
- 423 changes: 423 additions & 0 deletions423  
-dataAnalysis/gait/tarea2_template.py
-Original file line number	Diff line number	Diff line change
-@@ -0,0 +1,423 @@
-"""Plantilla base para la tarea 2 de procesamiento de datos de marcha.
-La idea de esta plantilla es que el estudiante complete las funciones
-necesarias para:
-1. listar los archivos CSV del dataset gait y seleccionar uno,
-2. extraer metadatos y frecuencia de muestreo,
-3. cargar las senales Angle_X, Linear_Acceleration_Z,
-   Segmentation_output y Sync,
-4. corregir el signo de la aceleracion en Z,
-5. calcular metricas temporales y espaciales simples del registro.
-"""
-
-from __future__ import annotations
-
-import os
-from dataclasses import dataclass, field
-
-import numpy as np
-import pandas as pd
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +198,10 @@ def obtener_frecuencia_muestreo(registro: RegistroCSV) -> float:
     # 4. devolver ese numero.
     #
     # Mientras no se implemente, devuelve 0.0.
+    for _, fila in registro.metadatos.iterrows():
+        if fila["campo"] == CAMPO_FRECUENCIA:
+            return float(fila["valor"])
+
     return 0.0
 
 
@@ -430,6 +412,7 @@ def main() -> None:
     # Paso 3: cargamos el archivo seleccionado en un registro.
     registro = construir_registro_desde_csv(ruta_csv)
     frecuencia_muestreo = obtener_frecuencia_muestreo(registro)
+    print(frecuencia_muestreo)
 
     # Cuando las funciones principales esten completas, este flujo deberia
     # producir resultados reales a partir del CSV.
