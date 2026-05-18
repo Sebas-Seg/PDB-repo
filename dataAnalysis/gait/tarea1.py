@@ -224,6 +224,22 @@ def graficar_registro(
     ejes[1].set_ylabel("Aceleracion [m/s2]")
     ejes[1].set_xlabel("Tiempo [s]")
     figura.suptitle(nombre_fichero)
+    tiempo = np.arange(len(angle_x)) / frecuencia_muestreo
+
+    sombrear_intervalos_sync(
+        ejes[0],
+        tiempo,
+        sync
+    )
+
+    sombrear_intervalos_sync(
+        ejes[1],
+        tiempo,
+        sync
+    )
+
+    ejes[0].plot(tiempo, angle_x)
+    ejes[1].plot(tiempo, acc_z)
     figura.tight_layout(rect=(0, 0, 1, 0.97))
     plt.show()
 
