@@ -272,7 +272,17 @@ def contar_transiciones_s3_s0(segmentation_output, inicio: int, fin: int) -> int
     # 3. contar las transiciones donde aparece 3 seguido de 0.
     #
     # Mientras no se implemente, devuelve 0.
-    return 0
+    contador = 0
+
+    for indice in range(inicio, fin):
+
+        valor_actual = segmentation_output[indice]
+        valor_siguiente = segmentation_output[indice + 1]
+
+        if valor_actual == 3 and valor_siguiente == 0:
+            contador += 1
+
+    return contador
 
 
 # ---------------------------------------------------------------------------
