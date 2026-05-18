@@ -230,6 +230,11 @@ def obtener_frecuencia_muestreo(registro: RegistroCSV) -> float | None:
     # 4. devolver ese numero.
     #
     # Mientras no este implementada, devuelve None.
+    for _, fila in registro.metadatos.iterrows():
+
+        if fila["campo"] == "Sampling Frequency":
+            return float(fila["valor"])
+
     return None
 
 
