@@ -317,7 +317,9 @@ def calcular_velocidad_pasos(
     # 3. devolver el resultado en pasos/s.
     #
     # Mientras no se implemente, devuelve 0.0.
-    return 0.0
+    tiempo = muestras_pasos / frecuencia_muestreo
+
+    return pasos / tiempo
 
 
 # ---------------------------------------------------------------------------
