@@ -178,8 +178,18 @@ def sombrear_intervalos_sync(ax, tiempo, sync) -> None:
     # 3. usar ax.axvspan(inicio, fin, ...) para sombrear.
     #
     # Esta version no hace nada para no interrumpir la ejecucion.
-    return
+    inicio = None
 
+    for i in range(len(sync)):
+
+        if sync[i] == 1 and inicio is None:
+            inicio = tiempo[i]
+
+        if sync[i] == 0 and inicio is not None:
+
+            ax.axvspan(inicio, tiempo[i], alpha=0.3)
+
+            inicio = None
 
 # ---------------------------------------------------------------------------
 def graficar_registro(
