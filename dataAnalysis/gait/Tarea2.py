@@ -199,6 +199,14 @@ def obtener_frecuencia_muestreo(registro: RegistroCSV) -> float:
     # 4. devolver ese numero.
     #
     # Mientras no se implemente, devuelve 0.0.
+    #Buscamos el campo Sampling Frequency
+    fila = registro.metadatos[registro.metadatos["campo"]=="Sampling Frequency"]
+    #Verificamos que existe
+    if not fila.empty:
+        frecuencia = fila.iloc[0]["valor"]
+        #Convertimos a float
+        return float(frecuencia)
+    #Si no existe
     return 0.0
 
 
@@ -211,7 +219,8 @@ def corregir_aceleracion(registro: RegistroCSV) -> None:
     # 2. multiplicarla por -1,
     # 3. guardar el resultado en la misma tabla.
     #
-    return
+    registro.datos["Linear_Acceleration_Z"] *= -1
+    
 
 
 # ---------------------------------------------------------------------------
@@ -233,6 +242,11 @@ def buscar_indice_primera_sync(sync) -> int:
     # 3. devolver ese indice.
     #
     # Mientras no se implemente, devuelve -1.
+    indice = 0
+    for valor in sync:
+        if valor != 0:
+            return indice
+        indice += 1
     return -1
 
 
@@ -246,6 +260,12 @@ def buscar_indice_ultima_sync(sync) -> int:
     # 3. devolver ese indice.
     #
     # Mientras no se implemente, devuelve -1.
+    indice = len(sync) - 1
+
+    for valor in reversed(sync):
+        if valor !=0:
+            return indice
+        indice -= 1
     return -1
 
 
@@ -259,24 +279,38 @@ def contar_transiciones_s3_s0(segmentation_output, inicio: int, fin: int) -> int
     # 3. contar las transiciones donde aparece 3 seguido de 0.
     #
     # Mientras no se implemente, devuelve 0.
-    return 0
+    pasos = 0
+    indice = inicio
+
+    while indice < fin:
+        valor_actual = segmentation_output[indice]
+        valor_siguiente = segmentation_output[indice + 1]
+
+        if valor_actual == 3 and valor_siguiente == 0:
+            pasos += 1
+        
+        indice += 1
+
+    return pasos
 
 
 # ---------------------------------------------------------------------------
-def calcular_velocidad_marcha(
-    muestras_sync: int,
-    frecuencia_muestreo: float,
-    distancia_m: float = DISTANCIA_UTIL_10MWT_M,
-) -> float:
+def calcular_velocidad_marcha(muestras_sync: int,frecuencia_muestreo: float,distancia_m: float = DISTANCIA_UTIL_10MWT_M,) -> float:
     # Calcula la velocidad media de marcha en la ventana util del 10MWT.
-    #
+    
     # Tarea del estudiante:
     # 1. convertir la cantidad de muestras Sync en tiempo,
     # 2. usar la distancia util de 6 metros,
     # 3. devolver distancia / tiempo.
     #
     # Mientras no se implemente, devuelve 0.0.
-    return 0.0
+    if muestras_sync <= 0 or frecuencia_muestreo <= 0:
+        return 0.0
+    
+    tiempo_sync = muestras_sync / frecuencia_muestreo
+    velocidad = distancia_m / tiempo_sync
+
+    return velocidad
 
 
 # ---------------------------------------------------------------------------
@@ -293,9 +327,13 @@ def calcular_velocidad_pasos(
     # 3. devolver el resultado en pasos/s.
     #
     # Mientras no se implemente, devuelve 0.0.
-    return 0.0
+    if muestras_pasos <= 0 or frecuencia_muestreo <= 0:
+        return 0.0
+    
+    tiempo_sync = muestras_pasos / frecuencia_muestreo
+    velocidad_pasos = pasos / tiempo_sync
 
-
+    return velocidad_pasos
 # ---------------------------------------------------------------------------
 def calcular_longitud_zancada(
     velocidad_marcha: float,
@@ -309,8 +347,11 @@ def calcular_longitud_zancada(
     # 3. devolver el resultado en metros por paso.
     #
     # Mientras no se implemente, devuelve 0.0.
-    return 0.0
+    if velocidad_pasos <= 0:
+        return 0.0
 
+    longitud_zancada = velocidad_marcha / velocidad_pasos
+    return longitud_zancada
 
 # ---------------------------------------------------------------------------
 def calcular_metricas(
@@ -403,7 +444,7 @@ def main() -> None:
     # Tarea del estudiante:
     # 1. decidir que indice de la lista quiere analizar,
     # 2. usar seleccionar_archivo_csv(...) para obtener la ruta completa.
-    indice = 0
+    indice = 1
     ruta_csv = seleccionar_archivo_csv(db_path, ficheros, indice)
 
     # Paso 3: cargamos el archivo seleccionado en un registro.

@@ -351,7 +351,7 @@ def main() -> None:
     # Una vez implementadas las funciones anteriores, descomentar lo
     # siguiente para generar las curvas de un registro:
     #
-    indice = 0
+    indice = 1
     registro = data_base[indice]
     frecuencia_muestreo = obtener_frecuencia_muestreo(registro)
     graficar_registro(
